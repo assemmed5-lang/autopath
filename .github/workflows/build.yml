@@ -50,9 +50,15 @@ jobs:
         run: |
           mkdir -p www/MP3
           cp index.html www/
-          cp MP3/*.mp3 www/MP3/ 2>/dev/null || true
+          if [ ! -d "MP3" ] || [ -z "$(ls -A MP3/*.mp3 2>/dev/null)" ]; then
+            echo "ERREUR: le dossier MP3/ est absent ou vide a la racine du repo — verifie qu'il est bien commite dans git (et pas ignore par un .gitignore)."
+            exit 1
+          fi
+          cp MP3/*.mp3 www/MP3/
+          NB_MP3=$(ls www/MP3/*.mp3 | wc -l)
+          echo "MP3 copies dans l'APK : $NB_MP3 fichiers"
           echo '{"name":"quizvocal","version":"1.0.0","private":true}' > package.json
-          npm install @capacitor/core@5 @capacitor/cli@5 @capacitor/android@5 @capacitor-community/speech-recognition@5
+          npm install @capacitor/core@5 @capacitor/cli@5 @capacitor/android@5 @capacitor-community/speech-recognition@5 @capacitor-community/text-to-speech@5
           python3 -c "import json; open('capacitor.config.json','w').write(json.dumps({'appId':'com.quizvocal.patho','appName':'QuizVocal','webDir':'www','androidScheme':'https','android':{'allowMixedContent':True}}, indent=2))"
           npx cap add android
           npx cap sync android
