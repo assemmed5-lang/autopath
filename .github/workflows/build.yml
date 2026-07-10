@@ -12,6 +12,9 @@ jobs:
       - name: Decode keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > quizvocal.jks
+      - name: Verify keystore
+        run: |
+          keytool -list -keystore quizvocal.jks -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" -keypass "${{ secrets.KEY_PASSWORD }}"
       - name: Build and Patch
         run: |
           mkdir -p www/MP3
