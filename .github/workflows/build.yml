@@ -58,7 +58,7 @@ jobs:
           NB_MP3=$(ls www/mp3/*.mp3 | wc -l)
           echo "MP3 copies dans l'APK : $NB_MP3 fichiers"
           echo '{"name":"quizvocal","version":"1.0.0","private":true}' > package.json
-          npm install --legacy-peer-deps @capacitor/core@5 @capacitor/cli@5 @capacitor/android@5 @capacitor-community/speech-recognition@5 @capacitor-community/text-to-speech@5
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor-community/speech-recognition@6 @capacitor-community/text-to-speech@5
           python3 -c "import json; open('capacitor.config.json','w').write(json.dumps({'appId':'com.quizvocal.patho','appName':'QuizVocal','webDir':'www','androidScheme':'https','android':{'allowMixedContent':True}}, indent=2))"
           npx cap add android
           npx cap sync android
