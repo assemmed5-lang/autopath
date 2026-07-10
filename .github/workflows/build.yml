@@ -12,7 +12,8 @@ jobs:
       - name: Decode keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > quizvocal.jks
-      - name: Sanity check decoded keystore file
+      - name: Detect keystore type
+        id: detect
         run: |
           SIZE=$(stat -c%s quizvocal.jks)
           echo "Decoded keystore size: $SIZE bytes"
@@ -22,15 +23,21 @@ jobs:
           fi
           MAGIC=$(xxd -p -l4 quizvocal.jks)
           echo "First 4 bytes (hex): $MAGIC"
-          if [ "$MAGIC" != "feedfeed" ]; then
-            echo "ERROR: file does not start with JKS magic bytes (feedfeed)."
-            echo "This means KEYSTORE_BASE64 was corrupted when decoded (extra newline, CRLF, or bad copy/paste)."
+          if [ "$MAGIC" == "feedfeed" ]; then
+            echo "Detected format: JKS"
+            echo "store_type=JKS" >> "$GITHUB_OUTPUT"
+          elif [[ "$MAGIC" == 3082* ]]; then
+            echo "Detected format: PKCS12"
+            echo "store_type=PKCS12" >> "$GITHUB_OUTPUT"
+          else
+            echo "ERROR: unrecognized keystore format (magic bytes: $MAGIC)."
+            echo "KEYSTORE_BASE64 is likely corrupted."
             exit 1
           fi
       - name: Verify keystore and key password (real decrypt test)
         run: |
           keytool -importkeystore \
-            -srckeystore quizvocal.jks -srcstoretype JKS \
+            -srckeystore quizvocal.jks -srcstoretype "${{ steps.detect.outputs.store_type }}" \
             -srcalias "${{ secrets.KEY_ALIAS }}" \
             -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
             -srckeypass "${{ secrets.KEY_PASSWORD }}" \
@@ -83,6 +90,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file="$(pwd)/app/quizvocal.jks" \
+            -Pandroid.injected.signing.store.type="${{ steps.detect.outputs.store_type }}" \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
