@@ -492,7 +492,27 @@ function chargerBanque() {
 function commencerQuiz() {
   document.getElementById('ecran-demarrage').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  prechaufferTTS();
   chargerQuestion(0);
+}
+
+// Le moteur TTS natif Android met souvent 1 à 2 secondes à s'initialiser
+// au tout premier appel ("cold start"). On le préchauffe ici avec un texte
+// quasi silencieux, dès le premier geste utilisateur, pour que la première
+// vraie traduction demandée par l'utilisateur ne soit pas en retard.
+function prechaufferTTS() {
+  const p = pluginTTS();
+  if (p) {
+    p.speak({ text: ' ', lang: 'en-US', rate: 1.0, volume: 0.01, category: 'ambient' }).catch(() => {});
+    return;
+  }
+  if ('speechSynthesis' in window) {
+    try {
+      const utt = new SpeechSynthesisUtterance(' ');
+      utt.volume = 0;
+      window.speechSynthesis.speak(utt);
+    } catch (e) {}
+  }
 }
 
 // ============================================
@@ -855,7 +875,17 @@ function chargerQuestion(idx) {
 
 // ============================================
 // MICRO — toggle
+// Stratégie identique à Tilawa : webkitSpeechRecognition EN PRIORITÉ
+// (fonctionne aussi dans la WebView Capacitor grâce à androidScheme:'https').
+// Le moteur s'arrête tout seul après quelques secondes de silence — ce n'est
+// PAS la fin de la réponse : on le redémarre aussitôt en arrière-plan, en
+// fusionnant le texte, jusqu'à ce que l'utilisateur appuie lui-même sur
+// "Valider". Le plugin natif n'est qu'un dernier recours.
 // ============================================
+let recogActive = false;
+let finalTx = '';
+let lastFullTx = '';
+
 function basculerMicro() {
   if (questionRepondue) return;
   if (enEcoute) {
@@ -868,8 +898,88 @@ function basculerMicro() {
 async function demarrerMicro() {
   if (questionRepondue) return;
   transcriptsAccumules = [];
+  finalTx = '';
+  lastFullTx = '';
+  derniereTranscriptionNative = '';
 
-  // ── APK natif : plugin @capacitor-community/speech-recognition ──
+  const SRBrowser = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SRBrowser) {
+    annulerParole();
+
+    function makeRecog() {
+      const r = new SRBrowser();
+      r.lang = 'en-US';
+      r.continuous = true;
+      r.interimResults = true;
+      r.maxAlternatives = 1;
+
+      r.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) finalTx += e.results[i][0].transcript + ' ';
+          else interim += e.results[i][0].transcript;
+        }
+        const candidat = (finalTx + interim).trim();
+        if (candidat.length >= lastFullTx.length) lastFullTx = candidat;
+        document.getElementById('fond-droite').textContent = lastFullTx || '…';
+      };
+
+      r.onerror = (e) => {
+        // "no-speech" et "aborted" sont normaux (silence, ou arrêt manuel) : pas une vraie erreur
+        if (e.error === 'not-allowed' || e.error === 'audio-capture') {
+          recogActive = false;
+          enEcoute = false;
+          mettreAJourZones('question');
+          afficherStatut('Micro refusé — vérifie les permissions');
+        } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          console.error('Erreur reconnaissance vocale :', e.error);
+        }
+      };
+
+      // CRITIQUE : le moteur s'arrête seul après un silence — on le
+      // redémarre immédiatement, ce n'est pas la fin de la réponse.
+      r.onend = restartRecog;
+      return r;
+    }
+
+    function restartRecog() {
+      // On fige finalTx sur le texte le plus complet connu (lastFullTx),
+      // pour ne jamais perdre de mots "interim" au moment de la coupure.
+      if (lastFullTx.trim().length >= finalTx.trim().length) {
+        finalTx = lastFullTx.trim() + ' ';
+      }
+      if (!recogActive) return;
+      try {
+        recognition = makeRecog();
+        recognition.start();
+      } catch (e) {
+        // Redémarrage à chaud parfois refusé (InvalidStateError) : on retente une fois
+        setTimeout(() => {
+          if (!recogActive) return;
+          try { recognition = makeRecog(); recognition.start(); } catch (e2) {}
+        }, 80);
+      }
+    }
+
+    recogActive = true;
+    recognition = makeRecog();
+    try {
+      recognition.start();
+      enEcoute = true;
+      phaseActuelle = 'question';
+      mettreAJourZones('ecoute');
+      afficherStatut('Écoute… (appuie à nouveau pour valider)', true);
+      document.getElementById('fond-droite').textContent = '…';
+    } catch (e) {
+      recogActive = false;
+      mettreAJourZones('question');
+      afficherStatut('Micro indisponible — réessaie');
+    }
+    return;
+  }
+
+  // ── Dernier recours : plugin natif @capacitor-community/speech-recognition ──
   const SRNatif = pluginSpeechRecognition();
   if (SRNatif) {
     try {
@@ -890,7 +1000,7 @@ async function demarrerMicro() {
       console.error('Erreur vérification permissions micro :', e);
     }
 
-    derniereTranscriptionNative = '';
+    recogActive = true;
     ecouteNativeActive = true;
     enEcoute = true;
     phaseActuelle = 'question';
@@ -907,6 +1017,7 @@ async function demarrerMicro() {
 
     SRNatif.start({ language: 'en-US', partialResults: true, popup: false, maxResults: 1 }).catch((e) => {
       console.error('Erreur démarrage reconnaissance native :', e);
+      recogActive = false;
       ecouteNativeActive = false;
       enEcoute = false;
       mettreAJourZones('question');
@@ -915,66 +1026,41 @@ async function demarrerMicro() {
     return;
   }
 
-  // ── Repli navigateur (GitHub Pages / Chrome) : Web Speech API ──
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert("Reconnaissance vocale non supportée sur ce navigateur.");
-    return;
-  }
-  annulerParole();
-
-  recognition = new SpeechRecognition();
-  recognition.lang = 'en-US';
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
-
-  recognition.onstart = () => {
-    enEcoute = true;
-    phaseActuelle = 'question';
-    mettreAJourZones('ecoute');
-    afficherStatut('Écoute… (appuie à nouveau pour valider)', true);
-    document.getElementById('fond-droite').textContent = '…';
-  };
-
-  recognition.onresult = (e) => {
-    let texteIntermediaire = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) {
-        transcriptsAccumules.push(e.results[i][0].transcript.trim());
-      } else {
-        texteIntermediaire += e.results[i][0].transcript;
-      }
-    }
-    const texteAffiche = (transcriptsAccumules.join(' ') + ' ' + texteIntermediaire).trim();
-    document.getElementById('fond-droite').textContent = texteAffiche || '…';
-  };
-
-  recognition.onerror = (e) => {
-    // "no-speech" et "aborted" sont normaux (silence, ou arrêt manuel) : pas une vraie erreur
-    if (e.error !== 'no-speech' && e.error !== 'aborted') {
-      console.error('Erreur reconnaissance vocale :', e.error);
-    }
-  };
-
-  recognition.onend = () => {
-    enEcoute = false;
-    if (questionRepondue) return;
-
-    if (transcriptsAccumules.length > 0) {
-      const texteFinal = transcriptsAccumules.join(' ').toLowerCase().trim();
-      traiterReponse([texteFinal]);
-    } else {
-      mettreAJourZones('question');
-      afficherStatut('Aucune réponse détectée — réessaie');
-    }
-  };
-
-  recognition.start();
+  alert("Reconnaissance vocale non supportée sur cet appareil.");
 }
 
+// Arrêt manuel (bouton "Valider") — c'est LE seul endroit qui finalise
+// vraiment la réponse et déclenche la correction, pour les deux chemins
+// (navigateur ET plugin natif).
 function arreterMicro() {
-  if (recognition) recognition.stop();
+  recogActive = false;
+  enEcoute = false;
+
+  if (recognition) {
+    try { recognition.stop(); } catch (e) {}
+  }
+
+  const SRNatif = pluginSpeechRecognition();
+  if (SRNatif && ecouteNativeActive) {
+    ecouteNativeActive = false;
+    try { SRNatif.stop(); } catch (e) {}
+    SRNatif.removeAllListeners().catch(() => {});
+  }
+
+  if (lastFullTx.trim().length >= finalTx.trim().length) {
+    finalTx = lastFullTx.trim() + ' ';
+  }
+
+  const texteFinal = (finalTx.trim() || derniereTranscriptionNative.trim() || '').toLowerCase().trim();
+
+  if (questionRepondue) return;
+
+  if (texteFinal) {
+    traiterReponse([texteFinal]);
+  } else {
+    mettreAJourZones('question');
+    afficherStatut('Aucune réponse détectée — réessaie');
+  }
 }
 
 // ============================================
