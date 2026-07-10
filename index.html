@@ -637,12 +637,13 @@ function jouerAudio(nomFichier, texteFallback) {
     audio.load();
 
     function lancerLecture() {
-    audio.play().catch((err) => {
-      afficherDebugAudio('play() rejete pour "' + cheminComplet + '" : ' + (err && err.message ? err.message : err) + '. Repli TTS.');
-      if (!ttsDisponible() || !texteFallback) { finir(); return; }
-      lecteurAnglaisTTS = creerLecteur(texteFallback);
-      jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, finir);
-    });
+      audio.play().catch((err) => {
+        afficherDebugAudio('play() rejete pour "' + cheminComplet + '" : ' + (err && err.message ? err.message : err) + '. Repli TTS.');
+        if (!ttsDisponible() || !texteFallback) { finir(); return; }
+        lecteurAnglaisTTS = creerLecteur(texteFallback);
+        jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, finir);
+      });
+    }
   });
 }
 
