@@ -12,9 +12,32 @@ jobs:
       - name: Decode keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > quizvocal.jks
-      - name: Verify keystore
+      - name: Sanity check decoded keystore file
         run: |
-          keytool -list -keystore quizvocal.jks -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" -keypass "${{ secrets.KEY_PASSWORD }}"
+          SIZE=$(stat -c%s quizvocal.jks)
+          echo "Decoded keystore size: $SIZE bytes"
+          if [ "$SIZE" -lt 500 ]; then
+            echo "ERROR: decoded file is suspiciously small — KEYSTORE_BASE64 secret is likely truncated or wrong."
+            exit 1
+          fi
+          MAGIC=$(xxd -p -l4 quizvocal.jks)
+          echo "First 4 bytes (hex): $MAGIC"
+          if [ "$MAGIC" != "feedfeed" ]; then
+            echo "ERROR: file does not start with JKS magic bytes (feedfeed)."
+            echo "This means KEYSTORE_BASE64 was corrupted when decoded (extra newline, CRLF, or bad copy/paste)."
+            exit 1
+          fi
+      - name: Verify keystore and key password (real decrypt test)
+        run: |
+          keytool -importkeystore \
+            -srckeystore quizvocal.jks -srcstoretype JKS \
+            -srcalias "${{ secrets.KEY_ALIAS }}" \
+            -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -srckeypass "${{ secrets.KEY_PASSWORD }}" \
+            -destkeystore /tmp/verify.p12 -deststoretype PKCS12 \
+            -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -destkeypass "${{ secrets.KEYSTORE_PASSWORD }}"
+          echo "Keystore, alias and passwords are all valid."
       - name: Build and Patch
         run: |
           mkdir -p www/MP3
