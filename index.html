@@ -460,6 +460,8 @@ let indexActuel = 0;
 let score = 0;
 let recognition = null;
 let enEcoute = false;
+let ecouteNativeActive = false;
+let derniereTranscriptionNative = '';
 let transcriptsAccumules = [];
 let questionRepondue = false;
 let phaseActuelle = 'question';   // 'question' | 'reponse' | 'commentaire'
@@ -507,30 +509,46 @@ function cheminMp3(nomFichier) {
 }
 
 // ============================================
-// TTS PAR MORCEAUX — contourne le bug Chrome qui coupe
-// speechSynthesis au milieu des textes longs (~15s)
+// TTS — abstraction natif (APK / Capacitor) vs navigateur (speechSynthesis)
+// Le WebView Android n'implémente PAS window.speechSynthesis : en APK, on
+// passe par le plugin natif @capacitor-community/text-to-speech.
+// Sur GitHub Pages / Chrome, on garde speechSynthesis (avec découpage par
+// phrases pour contourner le bug Chrome qui coupe les textes longs ~15s).
 // ============================================
+function estNatif() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+function pluginTTS() {
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null;
+}
+function ttsDisponible() {
+  return estNatif() ? !!pluginTTS() : ('speechSynthesis' in window);
+}
+
+function annulerParole() {
+  const p = pluginTTS();
+  if (p) { p.stop().catch(() => {}); }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+// Lecture ponctuelle sans gestion de reprise (ex: "Bravo !", score final)
+function parlerSimple(texte, lang, rate) {
+  const p = pluginTTS();
+  if (p) {
+    p.speak({ text: texte, lang: lang, rate: rate || 1.0, category: 'ambient' }).catch((e) => console.error('TTS natif erreur', e));
+    return;
+  }
+  if ('speechSynthesis' in window) {
+    const utt = new SpeechSynthesisUtterance(texte);
+    utt.lang = lang;
+    if (rate) utt.rate = rate;
+    window.speechSynthesis.speak(utt);
+  }
+}
+
 function decouperEnPhrases(texte) {
   const morceaux = texte.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g);
   return morceaux ? morceaux.map(m => m.trim()).filter(Boolean) : [texte];
-}
-
-function parlerParMorceaux(texte, lang, rate, callbackFin) {
-  window.speechSynthesis.cancel();
-  const phrases = decouperEnPhrases(texte);
-  let i = 0;
-
-  function suivante() {
-    if (i >= phrases.length) { if (callbackFin) callbackFin(); return; }
-    const utt = new SpeechSynthesisUtterance(phrases[i]);
-    utt.lang = lang;
-    utt.rate = rate;
-    i++;
-    utt.onend = suivante;
-    utt.onerror = suivante;
-    window.speechSynthesis.speak(utt);
-  }
-  suivante();
 }
 
 // ── Lecteur "reprenable" : garde un index de progression pour pouvoir
@@ -540,9 +558,20 @@ function creerLecteur(texte) {
 }
 
 function jouerLecteurDepuis(lecteur, lang, rate, onTermine) {
+  const p = pluginTTS();
+
   function suivante() {
     if (lecteur.index >= lecteur.phrases.length) { if (onTermine) onTermine(); return; }
-    const utt = new SpeechSynthesisUtterance(lecteur.phrases[lecteur.index]);
+    const texte = lecteur.phrases[lecteur.index];
+
+    if (p) {
+      p.speak({ text: texte, lang: lang, rate: rate, category: 'ambient' })
+        .then(() => { lecteur.index++; suivante(); })
+        .catch(() => { /* interrompu (stop natif) — index inchangé, permet la reprise à la même phrase */ });
+      return;
+    }
+    if (!('speechSynthesis' in window)) { if (onTermine) onTermine(); return; }
+    const utt = new SpeechSynthesisUtterance(texte);
     utt.lang = lang;
     utt.rate = rate;
     let traite = false;
@@ -555,7 +584,7 @@ function jouerLecteurDepuis(lecteur, lang, rate, onTermine) {
 
 function jouerAudio(nomFichier, texteFallback) {
   return new Promise((resolve) => {
-    window.speechSynthesis.cancel();
+    annulerParole();
     if (audioActuel) { try { audioActuel.pause(); } catch(e){} }
 
     // Nouvelle lecture = on repart de zéro sur le toggle EN/FR
@@ -566,7 +595,7 @@ function jouerAudio(nomFichier, texteFallback) {
 
     if (!nomFichier) {
       afficherDebugAudio('Aucun nom de fichier fourni pour ce champ (question.*_audio est vide) — repli TTS.');
-      if (!('speechSynthesis' in window) || !texteFallback) { resolve(); return; }
+      if (!ttsDisponible() || !texteFallback) { resolve(); return; }
       lecteurAnglaisTTS = creerLecteur(texteFallback);
       jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, resolve);
       return;
@@ -588,14 +617,14 @@ function jouerAudio(nomFichier, texteFallback) {
       const codes = {1:'ABORTED', 2:'NETWORK (fichier introuvable/chemin incorrect)', 3:'DECODE (fichier corrompu)', 4:'SRC_NOT_SUPPORTED (format/chemin invalide)'};
       const code = audio.error ? audio.error.code : '?';
       afficherDebugAudio('Echec chargement "' + cheminComplet + '" — code ' + code + ' : ' + (codes[code] || 'inconnu') + '. Repli TTS.');
-      if (!('speechSynthesis' in window) || !texteFallback) { finir(); return; }
+      if (!ttsDisponible() || !texteFallback) { finir(); return; }
       lecteurAnglaisTTS = creerLecteur(texteFallback);
       jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, finir);
     });
 
     audio.play().catch((err) => {
       afficherDebugAudio('play() rejete pour "' + cheminComplet + '" : ' + (err && err.message ? err.message : err) + '. Repli TTS.');
-      if (!('speechSynthesis' in window) || !texteFallback) { finir(); return; }
+      if (!ttsDisponible() || !texteFallback) { finir(); return; }
       lecteurAnglaisTTS = creerLecteur(texteFallback);
       jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, finir);
     });
@@ -740,8 +769,8 @@ function clicZoneDroite() {
 // où la lecture précédente s'était arrêtée, pas depuis le début)
 // ============================================
 function basculerTraduction() {
-  if (!('speechSynthesis' in window)) {
-    alert("Synthèse vocale non supportée sur ce navigateur.");
+  if (!ttsDisponible()) {
+    alert("Synthèse vocale non disponible.");
     return;
   }
   const q = banque[indexActuel];
@@ -766,7 +795,7 @@ function basculerTraduction() {
   if (langueActive === 'en') {
     // Pause l'anglais (MP3 natif ou file TTS de repli) et lance/reprend le français
     if (audioActuel && !audioActuel.paused) { audioActuel.pause(); }
-    window.speechSynthesis.cancel();
+    annulerParole();
     langueActive = 'fr';
     traductionEnCours = true;
     document.getElementById('label-gauche').textContent = 'Pause FR';
@@ -776,7 +805,7 @@ function basculerTraduction() {
     });
   } else {
     // Pause le français et reprend l'anglais là où il s'était arrêté
-    window.speechSynthesis.cancel();
+    annulerParole();
     traductionEnCours = false;
     langueActive = 'en';
     document.getElementById('label-gauche').textContent = 'Traduire';
@@ -820,15 +849,63 @@ function basculerMicro() {
   }
 }
 
-function demarrerMicro() {
+async function demarrerMicro() {
+  if (questionRepondue) return;
+  transcriptsAccumules = [];
+
+  // ── APK natif : plugin @capacitor-community/speech-recognition ──
+  const SRNatif = pluginSpeechRecognition();
+  if (SRNatif) {
+    try {
+      const dispo = await SRNatif.available();
+      if (dispo && dispo.available === false) {
+        alert("Reconnaissance vocale non disponible sur cet appareil.");
+        return;
+      }
+      const perm = await SRNatif.checkPermissions();
+      if (perm.speechRecognition !== 'granted') {
+        const demande = await SRNatif.requestPermissions();
+        if (demande.speechRecognition !== 'granted') {
+          alert("Permission micro refusée. Active-la dans les réglages de l'application.");
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Erreur vérification permissions micro :', e);
+    }
+
+    derniereTranscriptionNative = '';
+    ecouteNativeActive = true;
+    enEcoute = true;
+    phaseActuelle = 'question';
+    mettreAJourZones('ecoute');
+    afficherStatut('Écoute… (appuie à nouveau pour valider)', true);
+    document.getElementById('fond-droite').textContent = '…';
+
+    SRNatif.removeAllListeners().catch(() => {});
+    SRNatif.addListener('partialResults', (data) => {
+      const texte = (data && data.matches && data.matches[0]) || '';
+      derniereTranscriptionNative = texte;
+      document.getElementById('fond-droite').textContent = texte || '…';
+    });
+
+    SRNatif.start({ language: 'en-US', partialResults: true, popup: false, maxResults: 1 }).catch((e) => {
+      console.error('Erreur démarrage reconnaissance native :', e);
+      ecouteNativeActive = false;
+      enEcoute = false;
+      mettreAJourZones('question');
+      afficherStatut('Micro indisponible — réessaie');
+    });
+    return;
+  }
+
+  // ── Repli navigateur (GitHub Pages / Chrome) : Web Speech API ──
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     alert("Reconnaissance vocale non supportée sur ce navigateur.");
     return;
   }
-  window.speechSynthesis.cancel();
-
-  transcriptsAccumules = [];
+  annulerParole();
 
   recognition = new SpeechRecognition();
   recognition.lang = 'en-US';
@@ -1017,12 +1094,7 @@ async function traiterReponse(alternatives) {
     messageVocalFr = 'Incorrect.';
   }
 
-  if ('speechSynthesis' in window) {
-    const utt = new SpeechSynthesisUtterance(messageVocalFr);
-    utt.lang = 'fr-FR';
-    utt.rate = 0.95;
-    window.speechSynthesis.speak(utt);
-  }
+  parlerSimple(messageVocalFr, 'fr-FR', 0.95);
 
   // Passe en phase "réponse" : zone droite → 💬 Commentaire, texte de fond = réponse
   phaseActuelle = 'reponse';
@@ -1063,7 +1135,7 @@ function sauvegarderApiKey() {
 // NAVIGATION
 // ============================================
 function questionSuivante() {
-  window.speechSynthesis.cancel();
+  annulerParole();
   if (audioActuel) { try { audioActuel.pause(); } catch(e){} }
   indexActuel++;
   if (indexActuel >= banque.length) {
@@ -1074,7 +1146,7 @@ function questionSuivante() {
 }
 
 function passerQuestion() {
-  window.speechSynthesis.cancel();
+  annulerParole();
   if (audioActuel) { try { audioActuel.pause(); } catch(e){} }
   if (recognition) recognition.stop();
   indexActuel++;
@@ -1094,9 +1166,7 @@ function afficherFin() {
               score >= banque.length / 2 ? 'Bien joué 👍' : 'Continue à réviser 💪';
   document.getElementById('score-label').textContent = msg;
 
-  const utt = new SpeechSynthesisUtterance(score + ' sur ' + banque.length + '. ' + msg);
-  utt.lang = 'fr-FR';
-  setTimeout(() => window.speechSynthesis.speak(utt), 400);
+  setTimeout(() => parlerSimple(score + ' sur ' + banque.length + '. ' + msg, 'fr-FR'), 400);
 }
 
 function restart() {
