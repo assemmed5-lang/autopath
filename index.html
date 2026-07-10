@@ -521,6 +521,9 @@ function estNatif() {
 function pluginTTS() {
   return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null;
 }
+function pluginSpeechRecognition() {
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SpeechRecognition) || null;
+}
 function ttsDisponible() {
   return estNatif() ? !!pluginTTS() : ('speechSynthesis' in window);
 }
@@ -602,7 +605,7 @@ function jouerAudio(nomFichier, texteFallback) {
     }
 
     const cheminComplet = cheminMp3(nomFichier);
-    const audio = new Audio(cheminComplet);
+    const audio = new Audio();
     audioActuel = audio;
     let resolu = false;
     const finir = () => { if (!resolu) { resolu = true; resolve(); } };
@@ -622,6 +625,18 @@ function jouerAudio(nomFichier, texteFallback) {
       jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, finir);
     });
 
+    // Comme dans Récita : on attend que le fichier soit prêt (canplaythrough)
+    // avant d'appeler play(), plutôt que d'appeler play() immédiatement après
+    // avoir défini src — ça évite un rejet play() par condition de course
+    // dans la WebView Android.
+    audio.addEventListener('canplaythrough', function onReady() {
+      audio.removeEventListener('canplaythrough', onReady);
+      lancerLecture();
+    });
+    audio.src = cheminComplet;
+    audio.load();
+
+    function lancerLecture() {
     audio.play().catch((err) => {
       afficherDebugAudio('play() rejete pour "' + cheminComplet + '" : ' + (err && err.message ? err.message : err) + '. Repli TTS.');
       if (!ttsDisponible() || !texteFallback) { finir(); return; }
