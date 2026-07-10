@@ -1205,7 +1205,28 @@ async function traiterReponse(alternatives) {
 
   // Joue la réponse (MP3 anglais) automatiquement
   await lireReponse();
-}
+
+  // Pause avant l'énoncé des mots-clés (amélioration 1)
+  await new Promise(r => setTimeout(r, 400));
+
+  const motsCles = q.answer_user.split(/\s+/).filter(Boolean);
+  const fondDroite = document.getElementById('fond-droite');
+
+  await new Promise(resolve =>
+    jouerLecteurDepuis(creerLecteur('The key words for this answer are ' + motsCles.length + ':'), 'en-US', 0.95, resolve)
+  );
+
+  // Énonce et surligne chaque mot-clé, un par un (amélioration 2)
+  for (let i = 0; i < motsCles.length; i++) {
+    const avant = motsCles.slice(0, i).join(', ');
+    const apres = motsCles.slice(i + 1).join(', ');
+    fondDroite.innerHTML = (avant ? avant + ', ' : '') +
+      '<strong style="color:var(--accent)">' + motsCles[i] + '</strong>' +
+      (apres ? ', ' + apres : '');
+    await new Promise(resolve =>
+      jouerLecteurDepuis(creerLecteur(motsCles[i]), 'en-US', 0.95, resolve)
+    );
+  }
 
 // ============================================
 // FEEDBACK VISUEL TEMPORAIRE
