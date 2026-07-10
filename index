@@ -1,0 +1,1118 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Quiz Vocal Patho</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg:       #0a0e1a;
+    --surface:  #111827;
+    --border:   #1e2d45;
+    --accent:   #38bdf8;
+    --green:    #22c55e;
+    --red:      #ef4444;
+    --yellow:   #fbbf24;
+    --teal:     #2dd4bf;
+    --purple:   #a78bfa;
+    --text:     #f1f5f9;
+    --muted:    #64748b;
+    --radius:   18px;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    padding: env(safe-area-inset-top, 12px) 0 env(safe-area-inset-bottom, 12px) 0;
+  }
+
+  #header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  #header-titre {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  #header-droite {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #header-progress {
+    font-size: 13px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .btn-icone {
+    background: rgba(56,189,248,0.12);
+    border: none;
+    border-radius: 50%;
+    width: 34px; height: 34px;
+    color: var(--accent);
+    font-size: 15px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .btn-icone.actif {
+    background: rgba(34,197,94,0.2);
+    color: var(--green);
+  }
+
+  #zone-centrale {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  #statut-ligne {
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 20px;
+    letter-spacing: .3px;
+    padding: 2px 8px;
+  }
+  #statut-ligne.actif { color: var(--text); font-weight: 600; }
+
+  #zone-boutons {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+    min-height: 0;
+  }
+
+  .zone-btn {
+    flex: 1;
+    position: relative;
+    border: 2px solid var(--border);
+    border-radius: 22px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    overflow: hidden;
+    display: block;
+    padding: 0;
+    text-align: left;
+    transition: background .25s, border-color .25s, transform .15s, flex .25s;
+    touch-action: manipulation;
+  }
+  .zone-btn:active { transform: scale(0.98); }
+  .zone-btn:disabled { cursor: default; }
+  .zone-btn.cachee { display: none; }
+
+  .zone-fond {
+    position: absolute;
+    inset: 0;
+    padding: 16px 44px 40px 14px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(241,245,249,0.55);
+    text-align: left;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+  }
+  .zone-btn.etendue .zone-fond {
+    font-size: 19px;
+    line-height: 1.65;
+    padding: 20px 50px 56px 18px;
+    color: rgba(241,245,249,0.92);
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+
+  /* Icône + label repoussés en coin bas pour ne pas cacher le texte */
+  .zone-pied {
+    position: absolute;
+    left: 10px; bottom: 8px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(10,14,26,0.55);
+    padding: 5px 10px 5px 6px;
+    border-radius: 20px;
+    pointer-events: none;
+  }
+  .zone-icone {
+    font-size: 20px;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+  }
+  .zone-label {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: .3px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  /* Bouton d'agrandissement plein écran (coin haut) */
+  .zone-etendre {
+    position: absolute;
+    top: 8px; right: 8px;
+    z-index: 3;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(10,14,26,0.55);
+    color: var(--text);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  /* Zone gauche — traduction, identité fixe et constante */
+  #zone-gauche {
+    border-color: rgba(56,189,248,0.35);
+    background: rgba(56,189,248,0.07);
+  }
+
+  /* Zone droite — la couleur change selon la phase (code additionnel à la position) */
+  #zone-droite.c-bleu   { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.09); }
+  #zone-droite.c-rouge  { border-color: var(--red); background: rgba(239,68,68,0.15); animation: pulseZone 1s infinite; }
+  #zone-droite.c-jaune  { border-color: var(--yellow); background: rgba(251,191,36,0.12); }
+  #zone-droite.c-teal   { border-color: var(--teal); background: rgba(45,212,191,0.10); }
+  #zone-droite.c-violet { border-color: var(--purple); background: rgba(167,139,250,0.10); }
+
+  @keyframes pulseZone {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); }
+    50%       { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+  }
+
+  #feedback-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    pointer-events: none;
+  }
+  #feedback-emoji {
+    font-size: 120px;
+    animation: pop 0.4s ease-out both;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.3); opacity: 0; }
+    70%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  #ecran-fin {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 32px;
+    text-align: center;
+    z-index: 500;
+  }
+  #score-final {
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+  }
+  #score-label {
+    font-size: 18px;
+    color: var(--muted);
+  }
+  #btn-restart {
+    margin-top: 12px;
+    padding: 18px 48px;
+    border-radius: 14px;
+    border: none;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  #barre-prog-wrap {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  #barre-prog-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+
+  /* ── MODALE PARAMETRES ── */
+  #modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #modal-parametres {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+  }
+  #modal-parametres h3 {
+    font-size: 16px;
+    margin-bottom: 14px;
+    color: var(--accent);
+  }
+  #modal-parametres p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  #modal-parametres a {
+    color: var(--accent);
+  }
+  #input-api-key {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  #modal-boutons {
+    display: flex;
+    gap: 10px;
+  }
+  #modal-boutons button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #btn-sauver-cle { background: var(--accent); color: var(--bg); }
+  #btn-fermer-modal { background: var(--border); color: var(--text); }
+
+</style>
+</head>
+<body>
+<div id="ecran-demarrage" style="display:none; position:fixed; inset:0; background:#0a0e1a; flex-direction:column; align-items:center; justify-content:center; gap:24px; z-index:2000; padding:32px; text-align:center;">
+  <div style="font-size:56px;">🔬</div>
+  <div style="color:#f1f5f9; font-size:18px; font-weight:700; max-width:320px; line-height:1.5;">Quiz Vocal Patho</div>
+  <div style="color:#64748b; font-size:14px; max-width:320px; line-height:1.5;">Chrome exige un clic avant de jouer un son. Appuie sur Commencer pour activer l'audio des questions.</div>
+  <button onclick="commencerQuiz()" style="padding:18px 48px; border-radius:14px; border:none; background:#38bdf8; color:#0a0e1a; font-size:17px; font-weight:800; cursor:pointer;">▶ Commencer</button>
+</div>
+
+<div id="app">
+  <div id="header">
+    <span id="header-titre">🔬 Quiz Vocal</span>
+    <div id="header-droite">
+      <span id="header-progress">1 / 3</span>
+      <button class="btn-icone" onclick="relireAudioActuel()" title="Réécouter">🔊</button>
+      <button class="btn-icone" onclick="passerQuestion()" title="Passer">⏭</button>
+      <button class="btn-icone" onclick="ouvrirParametres()" title="Réglages">⚙️</button>
+    </div>
+  </div>
+  <div id="barre-prog-wrap">
+    <div id="barre-prog-fill" style="width:0%"></div>
+  </div>
+
+  <div id="zone-centrale">
+    <div id="statut-ligne">Appuie pour répondre</div>
+
+    <div id="zone-boutons">
+      <button id="zone-gauche" class="zone-btn" onclick="basculerTraduction()">
+        <div class="zone-etendre" onclick="event.stopPropagation(); toggleExpansion('gauche')" id="etendre-gauche" role="button" tabindex="0" title="Agrandir">⤢</div>
+        <div class="zone-fond" id="fond-gauche">—</div>
+        <div class="zone-pied">
+          <span class="zone-icone">🌐</span>
+          <span class="zone-label" id="label-gauche">Traduire</span>
+        </div>
+      </button>
+
+      <button id="zone-droite" class="zone-btn c-bleu" onclick="clicZoneDroite()">
+        <div class="zone-etendre" onclick="event.stopPropagation(); toggleExpansion('droite')" id="etendre-droite" role="button" tabindex="0" title="Agrandir">⤢</div>
+        <div class="zone-fond" id="fond-droite">—</div>
+        <div class="zone-pied">
+          <span class="zone-icone" id="icone-droite">🎙️</span>
+          <span class="zone-label" id="label-droite">Parler</span>
+        </div>
+      </button>
+    </div>
+
+    <div id="debug-audio" style="font-size:10px; color:#fbbf24; text-align:center; word-break:break-all; max-width:100%; min-height:0;"></div>
+  </div>
+</div>
+
+<div id="feedback-overlay">
+  <span id="feedback-emoji">✅</span>
+</div>
+
+<div id="ecran-fin">
+  <div style="font-size:48px">🏁</div>
+  <div id="score-final">0/3</div>
+  <div id="score-label">questions correctes</div>
+  <button id="btn-restart" onclick="restart()">Recommencer</button>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal-parametres">
+    <h3>⚙️ Réglages</h3>
+    <p>Colle ta clé API Gemini (gratuite) pour activer la correction intelligente des réponses vocales. Sans clé, une correction locale approximative est utilisée à la place.</p>
+    <input type="text" id="input-api-key" placeholder="Clé API Gemini">
+    <p><a href="https://aistudio.google.com/apikey" target="_blank">→ Obtenir une clé gratuite sur aistudio.google.com</a></p>
+    <div id="modal-boutons">
+      <button id="btn-sauver-cle" onclick="sauvegarderApiKey()">Enregistrer</button>
+      <button id="btn-fermer-modal" onclick="fermerParametres()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// ÉTAT GLOBAL
+// ============================================
+let banque = [
+  {
+    "id": 1,
+    "question_mp3": "In breast pathology, what does the Triple Test consist of?",
+    "question_audio": "1Q.mp3",
+    "question_fr": "En pathologie mammaire, en quoi consiste le Triple Test ?",
+    "answer_mp3": "The Triple Test consists of three components that must all agree: the clinical setting, radiology, and pathology.",
+    "answer_audio": "1A.mp3",
+    "answer_fr": "Le Triple Test repose sur trois éléments qui doivent tous concorder : le contexte clinique, la radiologie et la pathologie.",
+    "answer_user": "clinical radiology pathology",
+    "comment_mp3": "The Triple Test is a risk management framework built on concordance. Its negative predictive value for missing cancer approaches 99% when all three arms agree. The most dangerous clinical scenario is a benign-appearing core biopsy in the setting of a BIRADS 5 spiculated mass — the pathologist must actively communicate discordance to the clinician, because silence implies agreement. In practice, discordant cases require either repeat biopsy with a larger needle or direct surgical excision.",
+    "comment_audio": "1C.mp3",
+    "comment_fr": "Le Triple Test est un outil de gestion du risque basé sur la concordance. Sa valeur prédictive négative dépasse 99% quand les trois éléments s'accordent. Le scénario le plus dangereux : une biopsie d'aspect bénin face à une masse spiculée BIRADS 5. Dans ce cas, le pathologiste doit signaler activement la discordance au clinicien — le silence, lui, sous-entend un accord. En pratique, une discordance impose soit une nouvelle biopsie à l'aiguille plus grosse, soit une excision chirurgicale directe."
+  },
+  {
+    "id": 2,
+    "question_mp3": "What are the common pathologic correlates of a breast mass on mammography?",
+    "question_audio": "2Q.mp3",
+    "question_fr": "Quels sont les corrélats pathologiques fréquents d'une masse mammaire à la mammographie ?",
+    "answer_mp3": "A mass on mammography commonly corresponds to cancer, fibroadenoma, or fibrocystic change.",
+    "answer_audio": "2A.mp3",
+    "answer_fr": "Une masse à la mammographie correspond le plus souvent à un cancer, un fibroadénome ou une mastopathie fibrokystique.",
+    "answer_user": "cancer fibroadenoma fibrocystic change",
+    "comment_mp3": "Each correlate produces a mass through a completely different growth mechanism. Cancer retracts surrounding tissue inward via desmoplastic stroma — the spicules on mammography are fibrotic extensions, not tumor itself. Fibroadenoma pushes tissue outward as it expands, creating smooth margins. Fibrocystic change creates a pseudomass through coalescent cysts and fibrosis without any invasion. These three mechanisms translate directly to the mammographic margins: spiculated for cancer, smooth lobulated for fibroadenoma, ill-defined for fibrocystic change.",
+    "comment_audio": "2C.mp3",
+    "comment_fr": "Chaque corrélat forme une masse par un mécanisme différent. Le cancer rétracte le tissu vers l'intérieur via son stroma desmoplasique — les spicules visibles sont des extensions fibreuses, pas la tumeur elle-même. Le fibroadénome, lui, repousse le tissu vers l'extérieur en grossissant, ce qui donne des marges lisses. La mastopathie fibrokystique crée une pseudomasse par fusion de kystes et fibrose, sans aucune invasion. Ces trois mécanismes se lisent directement sur les marges mammographiques : spiculées pour le cancer, lisses et lobulées pour le fibroadénome, mal définies pour la mastopathie fibrokystique."
+  },
+  {
+    "id": 3,
+    "question_mp3": "What are the common pathologic correlates of calcifications on mammography?",
+    "question_audio": "3Q.mp3",
+    "question_fr": "Quels sont les corrélats pathologiques fréquents des calcifications à la mammographie ?",
+    "answer_mp3": "Calcifications on mammography commonly correspond to DCIS, cancer, fibrocystic change, fibroadenoma, or vascular calcifications.",
+    "answer_audio": "3A.mp3",
+    "answer_fr": "Les calcifications à la mammographie correspondent le plus souvent au CCIS, au cancer, à la mastopathie fibrokystique, au fibroadénome ou à des calcifications vasculaires.",
+    "answer_user": "DCIS cancer fibrocystic fibroadenoma vascular",
+    "comment_mp3": "Calcification morphology is a direct radiological window into the underlying pathological process. Linear branching calcifications in high-grade DCIS are casts of necrotic ductal contents calcifying within the lumen — the mammographic image literally traces the duct system. Coarse popcorn calcifications in fibroadenoma reflect dystrophic calcification of hyalinized stroma. Vascular calcifications produce the tram-track sign of medial arterial wall calcification. The BIRADS morphology classification maps each pattern probabilistically to these histological correlates.",
+    "comment_audio": "3C.mp3",
+    "comment_fr": "La morphologie des calcifications donne une image directe du processus pathologique sous-jacent. Dans le CCIS de haut grade, les calcifications linéaires ramifiées sont des moulages du contenu nécrotique des canaux — l'image mammographique trace littéralement le système canalaire. Dans le fibroadénome, les calcifications grossières en pop-corn traduisent une calcification dystrophique du stroma hyalinisé. Les calcifications vasculaires, elles, produisent le signe du tramway le long de la paroi artérielle. La classification BIRADS relie chaque motif à ces corrélats histologiques, de façon probabiliste."
+  }
+];
+let indexActuel = 0;
+let score = 0;
+let recognition = null;
+let enEcoute = false;
+let transcriptsAccumules = [];
+let questionRepondue = false;
+let phaseActuelle = 'question';   // 'question' | 'reponse' | 'commentaire'
+let audioActuel = null;
+let API_KEY = localStorage.getItem('gemini_api_key') || '';
+let traductionEnCours = false;
+let langueActive = 'en';        // 'en' ou 'fr' — langue actuellement "active" pour le toggle
+let lecteurAnglaisTTS = null;   // file de reprise pour l'anglais TTS (repli sans MP3)
+let lecteurFrancais = null;     // file de reprise pour la traduction FR
+let frTexteCourant = null;      // texte FR actuellement chargé dans lecteurFrancais
+let zoneEtendue = null;         // null | 'gauche' | 'droite' — zone actuellement plein écran
+const DOSSIER_MP3 = 'MP3/';
+
+// ============================================
+// CHARGEMENT DE LA BANQUE (banque.json)
+// ============================================
+function chargerBanque() {
+  if (!banque || banque.length === 0) {
+    alert('Erreur : banque de questions vide.');
+    return;
+  }
+  // On n'appelle pas chargerQuestion(0) ici : sans clic utilisateur préalable,
+  // Chrome bloque l'autoplay audio. On affiche un écran de démarrage à la place.
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('ecran-demarrage').style.display = 'flex';
+}
+
+function commencerQuiz() {
+  document.getElementById('ecran-demarrage').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  chargerQuestion(0);
+}
+
+// ============================================
+// LECTURE AUDIO — MP3 anglais avec repli TTS
+// ============================================
+function afficherDebugAudio(msg) {
+  const el = document.getElementById('debug-audio');
+  if (el) el.textContent = msg;
+  console.error('[AUDIO DEBUG]', msg);
+}
+
+function cheminMp3(nomFichier) {
+  return DOSSIER_MP3 + nomFichier;
+}
+
+// ============================================
+// TTS PAR MORCEAUX — contourne le bug Chrome qui coupe
+// speechSynthesis au milieu des textes longs (~15s)
+// ============================================
+function decouperEnPhrases(texte) {
+  const morceaux = texte.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g);
+  return morceaux ? morceaux.map(m => m.trim()).filter(Boolean) : [texte];
+}
+
+function parlerParMorceaux(texte, lang, rate, callbackFin) {
+  window.speechSynthesis.cancel();
+  const phrases = decouperEnPhrases(texte);
+  let i = 0;
+
+  function suivante() {
+    if (i >= phrases.length) { if (callbackFin) callbackFin(); return; }
+    const utt = new SpeechSynthesisUtterance(phrases[i]);
+    utt.lang = lang;
+    utt.rate = rate;
+    i++;
+    utt.onend = suivante;
+    utt.onerror = suivante;
+    window.speechSynthesis.speak(utt);
+  }
+  suivante();
+}
+
+// ── Lecteur "reprenable" : garde un index de progression pour pouvoir
+// reprendre à la phrase où on s'est arrêté, plutôt que depuis le début ──
+function creerLecteur(texte) {
+  return { phrases: decouperEnPhrases(texte), index: 0 };
+}
+
+function jouerLecteurDepuis(lecteur, lang, rate, onTermine) {
+  function suivante() {
+    if (lecteur.index >= lecteur.phrases.length) { if (onTermine) onTermine(); return; }
+    const utt = new SpeechSynthesisUtterance(lecteur.phrases[lecteur.index]);
+    utt.lang = lang;
+    utt.rate = rate;
+    let traite = false;
+    utt.onend = () => { if (traite) return; traite = true; lecteur.index++; suivante(); };
+    utt.onerror = () => { if (traite) return; traite = true; /* interrompu (pause) — index inchangé, permet la reprise à la même phrase */ };
+    window.speechSynthesis.speak(utt);
+  }
+  suivante();
+}
+
+function jouerAudio(nomFichier, texteFallback) {
+  return new Promise((resolve) => {
+    window.speechSynthesis.cancel();
+    if (audioActuel) { try { audioActuel.pause(); } catch(e){} }
+
+    // Nouvelle lecture = on repart de zéro sur le toggle EN/FR
+    langueActive = 'en';
+    lecteurAnglaisTTS = null;
+    lecteurFrancais = null;
+    frTexteCourant = null;
+
+    if (!nomFichier) {
+      afficherDebugAudio('Aucun nom de fichier fourni pour ce champ (question.*_audio est vide) — repli TTS.');
+      if (!('speechSynthesis' in window) || !texteFallback) { resolve(); return; }
+      lecteurAnglaisTTS = creerLecteur(texteFallback);
+      jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, resolve);
+      return;
+    }
+
+    const cheminComplet = cheminMp3(nomFichier);
+    const audio = new Audio(cheminComplet);
+    audioActuel = audio;
+    let resolu = false;
+    const finir = () => { if (!resolu) { resolu = true; resolve(); } };
+
+    audio.addEventListener('playing', () => {
+      const el = document.getElementById('debug-audio');
+      if (el) el.textContent = '✓ MP3 en lecture : ' + cheminComplet;
+    });
+
+    audio.addEventListener('ended', finir);
+    audio.addEventListener('error', () => {
+      const codes = {1:'ABORTED', 2:'NETWORK (fichier introuvable/chemin incorrect)', 3:'DECODE (fichier corrompu)', 4:'SRC_NOT_SUPPORTED (format/chemin invalide)'};
+      const code = audio.error ? audio.error.code : '?';
+      afficherDebugAudio('Echec chargement "' + cheminComplet + '" — code ' + code + ' : ' + (codes[code] || 'inconnu') + '. Repli TTS.');
+      if (!('speechSynthesis' in window) || !texteFallback) { finir(); return; }
+      lecteurAnglaisTTS = creerLecteur(texteFallback);
+      jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, finir);
+    });
+
+    audio.play().catch((err) => {
+      afficherDebugAudio('play() rejete pour "' + cheminComplet + '" : ' + (err && err.message ? err.message : err) + '. Repli TTS.');
+      if (!('speechSynthesis' in window) || !texteFallback) { finir(); return; }
+      lecteurAnglaisTTS = creerLecteur(texteFallback);
+      jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95, finir);
+    });
+  });
+}
+
+function lireQuestion() {
+  phaseActuelle = 'question';
+  const q = banque[indexActuel];
+  jouerAudio(q.question_audio, q.question_mp3);
+}
+
+function lireReponse() {
+  phaseActuelle = 'reponse';
+  const q = banque[indexActuel];
+  return jouerAudio(q.answer_audio, q.answer_mp3);
+}
+
+function lireCommentaire() {
+  phaseActuelle = 'commentaire';
+  const q = banque[indexActuel];
+  return jouerAudio(q.comment_audio, q.comment_mp3);
+}
+
+// Réécoute l'audio anglais de la phase en cours (icône 🔊 du header)
+function relireAudioActuel() {
+  const q = banque[indexActuel];
+  if (phaseActuelle === 'question') jouerAudio(q.question_audio, q.question_mp3);
+  else if (phaseActuelle === 'reponse') jouerAudio(q.answer_audio, q.answer_mp3);
+  else jouerAudio(q.comment_audio, q.comment_mp3);
+}
+
+// Ligne de statut discrète au-dessus des 2 zones (texte transitoire)
+function afficherStatut(texte, actif) {
+  const el = document.getElementById('statut-ligne');
+  el.textContent = texte;
+  el.className = actif ? 'actif' : '';
+}
+
+// ============================================
+// AGRANDISSEMENT PLEIN ÉCRAN D'UNE ZONE
+// 1er clic sur ⤢ : la zone occupe tout l'espace, texte agrandi
+// 2e clic (même icône) : retour à l'affichage normal partagé
+// ============================================
+function toggleExpansion(cote) {
+  const gauche = document.getElementById('zone-gauche');
+  const droite = document.getElementById('zone-droite');
+  const etendreGauche = document.getElementById('etendre-gauche');
+  const etendreDroite = document.getElementById('etendre-droite');
+
+  if (zoneEtendue === cote) {
+    // Remet tout à l'ordre (taille normale, les deux zones visibles)
+    gauche.classList.remove('etendue', 'cachee');
+    droite.classList.remove('etendue', 'cachee');
+    etendreGauche.textContent = '⤢';
+    etendreDroite.textContent = '⤢';
+    zoneEtendue = null;
+  } else {
+    if (cote === 'gauche') {
+      gauche.classList.add('etendue');
+      gauche.classList.remove('cachee');
+      droite.classList.add('cachee');
+      etendreGauche.textContent = '⤡';
+    } else {
+      droite.classList.add('etendue');
+      droite.classList.remove('cachee');
+      gauche.classList.add('cachee');
+      etendreDroite.textContent = '⤡';
+    }
+    zoneEtendue = cote;
+  }
+}
+
+// ============================================
+// ZONES TACTILES — mise à jour centralisée
+// Gauche = toujours Traduction (texte de fond FR)
+// Droite  = action de la phase (texte de fond EN)
+// ============================================
+function mettreAJourZones(phase) {
+  const q = banque[indexActuel];
+
+  const fondGauche = document.getElementById('fond-gauche');
+  const zoneDroite = document.getElementById('zone-droite');
+  const fondDroite = document.getElementById('fond-droite');
+  const iconeDroite = document.getElementById('icone-droite');
+  const labelDroite = document.getElementById('label-droite');
+
+  zoneDroite.classList.remove('c-bleu', 'c-rouge', 'c-jaune', 'c-teal', 'c-violet');
+
+  if (phase === 'question') {
+    fondGauche.textContent = q.question_fr || '—';
+    fondDroite.textContent = q.question_mp3;
+    iconeDroite.textContent = '🎙️';
+    labelDroite.textContent = 'Parler';
+    zoneDroite.classList.add('c-bleu');
+    zoneDroite.disabled = false;
+  } else if (phase === 'ecoute') {
+    fondDroite.textContent = '';
+    iconeDroite.textContent = '⏹️';
+    labelDroite.textContent = 'Valider';
+    zoneDroite.classList.add('c-rouge');
+  } else if (phase === 'attente') {
+    iconeDroite.textContent = '🧠';
+    labelDroite.textContent = 'Correction…';
+    zoneDroite.classList.add('c-jaune');
+    zoneDroite.disabled = true;
+  } else if (phase === 'reponse') {
+    fondGauche.textContent = q.answer_fr || '—';
+    fondDroite.textContent = q.answer_mp3;
+    iconeDroite.textContent = '💬';
+    labelDroite.textContent = 'Commentaire';
+    zoneDroite.classList.add('c-teal');
+    zoneDroite.disabled = false;
+  } else if (phase === 'commentaire') {
+    fondGauche.textContent = q.comment_fr || '—';
+    fondDroite.textContent = q.comment_mp3;
+    iconeDroite.textContent = '➡️';
+    labelDroite.textContent = 'Suivant';
+    zoneDroite.classList.add('c-violet');
+    zoneDroite.disabled = false;
+  }
+
+  document.getElementById('label-gauche').textContent = 'Traduire';
+}
+
+// Gère le clic sur la zone droite selon la phase en cours
+function clicZoneDroite() {
+  if (phaseActuelle === 'question') {
+    basculerMicro();
+  } else if (phaseActuelle === 'reponse') {
+    phaseActuelle = 'commentaire';
+    mettreAJourZones('commentaire');
+    lireCommentaire();
+  } else if (phaseActuelle === 'commentaire') {
+    questionSuivante();
+  }
+}
+
+// ============================================
+// TRADUCTION FRANÇAISE — Toggle EN ↔ FR avec reprise
+// (chaque clic bascule vers l'autre langue, en reprenant
+// où la lecture précédente s'était arrêtée, pas depuis le début)
+// ============================================
+function basculerTraduction() {
+  if (!('speechSynthesis' in window)) {
+    alert("Synthèse vocale non supportée sur ce navigateur.");
+    return;
+  }
+  const q = banque[indexActuel];
+
+  let texteFr;
+  if (phaseActuelle === 'question') texteFr = q.question_fr;
+  else if (phaseActuelle === 'reponse') texteFr = q.answer_fr;
+  else texteFr = q.comment_fr;
+
+  if (!texteFr) {
+    afficherStatut('Traduction indisponible pour ce champ.');
+    return;
+  }
+
+  // Nouveau texte FR (changement de phase) → on réinitialise la file de reprise
+  if (!lecteurFrancais || frTexteCourant !== texteFr) {
+    lecteurFrancais = creerLecteur(texteFr);
+    frTexteCourant = texteFr;
+    langueActive = 'en';
+  }
+
+  if (langueActive === 'en') {
+    // Pause l'anglais (MP3 natif ou file TTS de repli) et lance/reprend le français
+    if (audioActuel && !audioActuel.paused) { audioActuel.pause(); }
+    window.speechSynthesis.cancel();
+    langueActive = 'fr';
+    traductionEnCours = true;
+    document.getElementById('label-gauche').textContent = 'Pause FR';
+    jouerLecteurDepuis(lecteurFrancais, 'fr-FR', 0.92, () => {
+      traductionEnCours = false;
+      document.getElementById('label-gauche').textContent = 'Traduire';
+    });
+  } else {
+    // Pause le français et reprend l'anglais là où il s'était arrêté
+    window.speechSynthesis.cancel();
+    traductionEnCours = false;
+    langueActive = 'en';
+    document.getElementById('label-gauche').textContent = 'Traduire';
+    if (audioActuel && audioActuel.paused && !audioActuel.ended) {
+      audioActuel.play().catch(() => {});
+    } else if (lecteurAnglaisTTS) {
+      jouerLecteurDepuis(lecteurAnglaisTTS, 'en-US', 0.95);
+    }
+  }
+}
+
+// ============================================
+// CHARGER QUESTION
+// ============================================
+function chargerQuestion(idx) {
+  questionRepondue = false;
+  enEcoute = false;
+  phaseActuelle = 'question';
+
+  // Remet les 2 zones à taille normale si une était agrandie
+  if (zoneEtendue) { toggleExpansion(zoneEtendue); }
+
+  document.getElementById('header-progress').textContent = (idx + 1) + ' / ' + banque.length;
+  document.getElementById('barre-prog-fill').style.width = ((idx / banque.length) * 100) + '%';
+
+  mettreAJourZones('question');
+  afficherStatut('Appuie pour répondre');
+
+  lireQuestion();
+}
+
+// ============================================
+// MICRO — toggle
+// ============================================
+function basculerMicro() {
+  if (questionRepondue) return;
+  if (enEcoute) {
+    arreterMicro();
+  } else {
+    demarrerMicro();
+  }
+}
+
+function demarrerMicro() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("Reconnaissance vocale non supportée sur ce navigateur.");
+    return;
+  }
+  window.speechSynthesis.cancel();
+
+  transcriptsAccumules = [];
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    enEcoute = true;
+    phaseActuelle = 'question';
+    mettreAJourZones('ecoute');
+    afficherStatut('Écoute… (appuie à nouveau pour valider)', true);
+    document.getElementById('fond-droite').textContent = '…';
+  };
+
+  recognition.onresult = (e) => {
+    let texteIntermediaire = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        transcriptsAccumules.push(e.results[i][0].transcript.trim());
+      } else {
+        texteIntermediaire += e.results[i][0].transcript;
+      }
+    }
+    const texteAffiche = (transcriptsAccumules.join(' ') + ' ' + texteIntermediaire).trim();
+    document.getElementById('fond-droite').textContent = texteAffiche || '…';
+  };
+
+  recognition.onerror = (e) => {
+    // "no-speech" et "aborted" sont normaux (silence, ou arrêt manuel) : pas une vraie erreur
+    if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      console.error('Erreur reconnaissance vocale :', e.error);
+    }
+  };
+
+  recognition.onend = () => {
+    enEcoute = false;
+    if (questionRepondue) return;
+
+    if (transcriptsAccumules.length > 0) {
+      const texteFinal = transcriptsAccumules.join(' ').toLowerCase().trim();
+      traiterReponse([texteFinal]);
+    } else {
+      mettreAJourZones('question');
+      afficherStatut('Aucune réponse détectée — réessaie');
+    }
+  };
+
+  recognition.start();
+}
+
+function arreterMicro() {
+  if (recognition) recognition.stop();
+}
+
+// ============================================
+// CORRECTION LOCALE DE REPLI (Levenshtein normalisé)
+// Utilisée uniquement si aucune clé API Gemini n'est configurée
+// ou si l'appel Gemini échoue (réseau, quota, etc.)
+// ============================================
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, (_, i) => Array.from({length: n+1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function similarite(a, b) {
+  a = a.toLowerCase().trim();
+  b = b.toLowerCase().trim();
+  if (a === b) return 1;
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(a, b) / maxLen;
+}
+
+// Retourne une fraction 0..1 estimant la proportion du contenu attendu retrouvee
+function scoreLocal(alternatives, answerUser) {
+  const cible = answerUser.toLowerCase().trim();
+  const motsCible = cible.split(/\s+/).filter(Boolean);
+  let meilleurScore = 0;
+
+  for (const dit of alternatives) {
+    const d = dit.toLowerCase().trim();
+    if (similarite(d, cible) >= 0.70) { meilleurScore = 1; continue; }
+    const motsTrouves = motsCible.filter(m => d.includes(m) || similarite(m, d) >= 0.80);
+    const fraction = motsCible.length ? motsTrouves.length / motsCible.length : 0;
+    if (fraction > meilleurScore) meilleurScore = fraction;
+  }
+  return meilleurScore;
+}
+
+// Classe un score 0..1 en 'correct' / 'partiel' / 'incorrect'
+function classifierScore(fraction) {
+  if (fraction >= 0.70) return 'correct';
+  if (fraction >= 0.30) return 'partiel';
+  return 'incorrect';
+}
+
+// ============================================
+// CORRECTION PAR GEMINI (API gratuite)
+// ============================================
+async function jugerReponseGemini(alternatives, answerUser, questionTexte) {
+  if (!API_KEY) {
+    return { statut: classifierScore(scoreLocal(alternatives, answerUser)), source: 'local' };
+  }
+
+  const transcript = alternatives.join(' / ');
+  const prompt =
+    "You are grading a spoken answer in a medical pathology quiz. " +
+    "Speech recognition is imperfect and may contain phonetic errors, missing articles, or partial words — judge the medical MEANING, not exact wording.\n\n" +
+    "Question: \"" + questionTexte + "\"\n" +
+    "Expected answer: \"" + answerUser + "\"\n" +
+    "Student said (speech-to-text, possibly with errors): \"" + transcript + "\"\n\n" +
+    "Grade the student's answer against the expected answer:\n" +
+    "- CORRECT: captures all or nearly all key elements of the expected answer.\n" +
+    "- PARTIAL: captures some but not all key elements (roughly 30% to 70% of the essential content).\n" +
+    "- INCORRECT: captures little or none of the expected answer.\n" +
+    "Reply with ONLY a single word: CORRECT, PARTIAL, or INCORRECT.";
+
+  try {
+    const res = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + API_KEY,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0, maxOutputTokens: 10 }
+        })
+      }
+    );
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const texte = (data?.candidates?.[0]?.content?.parts?.[0]?.text || '').toUpperCase();
+    let statut;
+    if (/\bCORRECT\b/.test(texte) && !/\bINCORRECT\b/.test(texte)) statut = 'correct';
+    else if (/\bPARTIAL\b/.test(texte)) statut = 'partiel';
+    else statut = 'incorrect';
+    return { statut, source: 'gemini' };
+  } catch (e) {
+    console.error('Erreur Gemini, repli local :', e);
+    return { statut: classifierScore(scoreLocal(alternatives, answerUser)), source: 'local-fallback' };
+  }
+}
+
+// ============================================
+// TRAITER RÉPONSE
+// ============================================
+async function traiterReponse(alternatives) {
+  questionRepondue = true;
+  const q = banque[indexActuel];
+
+  mettreAJourZones('attente');
+  afficherStatut('Correction en cours…', true);
+
+  let resultat;
+  try {
+    resultat = await jugerReponseGemini(alternatives, q.answer_user, q.question_mp3);
+  } catch (e) {
+    // Filet de sécurité : ne jamais rester bloqué sur "Correction en cours"
+    console.error('Erreur inattendue pendant la correction :', e);
+    resultat = { statut: classifierScore(scoreLocal(alternatives, q.answer_user)), source: 'local-erreur' };
+  }
+  const statut = resultat.statut;
+
+  const libellesSource = {
+    gemini: '✓ Corrigé par Gemini',
+    local: '⚠ Correction locale (pas de clé API)',
+    'local-fallback': '⚠ Correction locale (Gemini indisponible)',
+    'local-erreur': '⚠ Correction locale (erreur imprévue)'
+  };
+
+  let messageVocalFr = '';
+  if (statut === 'correct') {
+    score++;
+    afficherFeedback('✅');
+    messageVocalFr = 'Bravo !';
+  } else if (statut === 'partiel') {
+    afficherFeedback('🟡');
+    messageVocalFr = 'Tu es presque !';
+  } else {
+    afficherFeedback('❌');
+    messageVocalFr = 'Incorrect.';
+  }
+
+  if ('speechSynthesis' in window) {
+    const utt = new SpeechSynthesisUtterance(messageVocalFr);
+    utt.lang = 'fr-FR';
+    utt.rate = 0.95;
+    window.speechSynthesis.speak(utt);
+  }
+
+  // Passe en phase "réponse" : zone droite → 💬 Commentaire, texte de fond = réponse
+  phaseActuelle = 'reponse';
+  mettreAJourZones('reponse');
+  afficherStatut(libellesSource[resultat.source] || '');
+
+  // Joue la réponse (MP3 anglais) automatiquement
+  await lireReponse();
+}
+
+// ============================================
+// FEEDBACK VISUEL TEMPORAIRE
+// ============================================
+function afficherFeedback(emoji) {
+  const overlay = document.getElementById('feedback-overlay');
+  document.getElementById('feedback-emoji').textContent = emoji;
+  overlay.style.display = 'flex';
+  setTimeout(() => { overlay.style.display = 'none'; }, 700);
+}
+
+// ============================================
+// PARAMETRES — Clé API Gemini
+// ============================================
+function ouvrirParametres() {
+  document.getElementById('input-api-key').value = API_KEY;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+function fermerParametres() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+function sauvegarderApiKey() {
+  API_KEY = document.getElementById('input-api-key').value.trim();
+  localStorage.setItem('gemini_api_key', API_KEY);
+  fermerParametres();
+}
+
+// ============================================
+// NAVIGATION
+// ============================================
+function questionSuivante() {
+  window.speechSynthesis.cancel();
+  if (audioActuel) { try { audioActuel.pause(); } catch(e){} }
+  indexActuel++;
+  if (indexActuel >= banque.length) {
+    afficherFin();
+  } else {
+    chargerQuestion(indexActuel);
+  }
+}
+
+function passerQuestion() {
+  window.speechSynthesis.cancel();
+  if (audioActuel) { try { audioActuel.pause(); } catch(e){} }
+  if (recognition) recognition.stop();
+  indexActuel++;
+  if (indexActuel >= banque.length) {
+    afficherFin();
+  } else {
+    chargerQuestion(indexActuel);
+  }
+}
+
+function afficherFin() {
+  document.getElementById('barre-prog-fill').style.width = '100%';
+  document.getElementById('score-final').textContent = score + '/' + banque.length;
+  document.getElementById('ecran-fin').style.display = 'flex';
+
+  const msg = score === banque.length ? 'Parfait ! 🎯' :
+              score >= banque.length / 2 ? 'Bien joué 👍' : 'Continue à réviser 💪';
+  document.getElementById('score-label').textContent = msg;
+
+  const utt = new SpeechSynthesisUtterance(score + ' sur ' + banque.length + '. ' + msg);
+  utt.lang = 'fr-FR';
+  setTimeout(() => window.speechSynthesis.speak(utt), 400);
+}
+
+function restart() {
+  indexActuel = 0;
+  score = 0;
+  document.getElementById('ecran-fin').style.display = 'none';
+  chargerQuestion(0);
+}
+
+// ============================================
+// INIT
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+  chargerBanque();
+});
+</script>
+</body>
+</html>
