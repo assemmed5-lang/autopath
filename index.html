@@ -198,6 +198,20 @@
     border-color: rgba(56,189,248,0.35);
     background: rgba(56,189,248,0.07);
   }
+  .zone-gauche-haut {
+    position: absolute; top: 0; left: 0; right: 0; height: 55%;
+    z-index: 2; cursor: pointer;
+  }
+  .zone-gauche-bas {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 45%;
+    z-index: 2; cursor: pointer;
+    display: flex; align-items: flex-end; justify-content: center; gap: 6px;
+    padding-bottom: 34px;
+    background: linear-gradient(to top, rgba(56,189,248,0.12), transparent);
+  }
+  .zone-gauche-bas.actif {
+    background: linear-gradient(to top, rgba(239,68,68,0.2), transparent);
+  }
 
   /* Zone droite — la couleur change selon la phase (code additionnel à la position) */
   #zone-droite.c-bleu   { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.09); }
@@ -364,9 +378,14 @@
     <div id="statut-ligne">Appuie pour répondre</div>
 
     <div id="zone-boutons">
-      <button id="zone-gauche" class="zone-btn" onclick="basculerTraduction()">
+      <button id="zone-gauche" class="zone-btn">
         <div class="zone-etendre" onclick="event.stopPropagation(); toggleExpansion('gauche')" id="etendre-gauche" role="button" tabindex="0" title="Agrandir">⤢</div>
         <div class="zone-fond" id="fond-gauche">—</div>
+        <div class="zone-gauche-haut" onclick="event.stopPropagation(); basculerTraduction()" role="button" tabindex="0" title="Écouter la traduction FR"></div>
+        <div class="zone-gauche-bas" onclick="event.stopPropagation(); basculerMicroFr()" role="button" tabindex="0" title="Répondre en français">
+          <span class="zone-icone" id="icone-mic-fr">🎙️</span>
+          <span class="zone-label" id="label-mic-fr">Répondre FR</span>
+        </div>
         <div class="zone-pied">
           <span class="zone-icone">🌐</span>
           <span class="zone-label" id="label-gauche">Traduire</span>
@@ -425,6 +444,7 @@ let banque = [
     "answer_audio": "1A.mp3",
     "answer_fr": "Le Triple Test repose sur trois éléments qui doivent tous concorder : le contexte clinique, la radiologie et la pathologie.",
     "answer_user": "clinical radiology pathology",
+    "answer_user_fr": "clinique radiologie pathologie",
     "comment_mp3": "The Triple Test is a risk management framework built on concordance. Its negative predictive value for missing cancer approaches 99% when all three arms agree. The most dangerous clinical scenario is a benign-appearing core biopsy in the setting of a BIRADS 5 spiculated mass — the pathologist must actively communicate discordance to the clinician, because silence implies agreement. In practice, discordant cases require either repeat biopsy with a larger needle or direct surgical excision.",
     "comment_audio": "1C.mp3",
     "comment_fr": "Le Triple Test est un outil de gestion du risque basé sur la concordance. Sa valeur prédictive négative dépasse 99% quand les trois éléments s'accordent. Le scénario le plus dangereux : une biopsie d'aspect bénin face à une masse spiculée BIRADS 5. Dans ce cas, le pathologiste doit signaler activement la discordance au clinicien — le silence, lui, sous-entend un accord. En pratique, une discordance impose soit une nouvelle biopsie à l'aiguille plus grosse, soit une excision chirurgicale directe."
@@ -438,6 +458,7 @@ let banque = [
     "answer_audio": "2A.mp3",
     "answer_fr": "Une masse à la mammographie correspond le plus souvent à un cancer, un fibroadénome ou une mastopathie fibrokystique.",
     "answer_user": "cancer fibroadenoma fibrocystic change",
+    "answer_user_fr": "cancer fibroadénome fibrokystique",
     "comment_mp3": "Each correlate produces a mass through a completely different growth mechanism. Cancer retracts surrounding tissue inward via desmoplastic stroma — the spicules on mammography are fibrotic extensions, not tumor itself. Fibroadenoma pushes tissue outward as it expands, creating smooth margins. Fibrocystic change creates a pseudomass through coalescent cysts and fibrosis without any invasion. These three mechanisms translate directly to the mammographic margins: spiculated for cancer, smooth lobulated for fibroadenoma, ill-defined for fibrocystic change.",
     "comment_audio": "2C.mp3",
     "comment_fr": "Chaque corrélat forme une masse par un mécanisme différent. Le cancer rétracte le tissu vers l'intérieur via son stroma desmoplasique — les spicules visibles sont des extensions fibreuses, pas la tumeur elle-même. Le fibroadénome, lui, repousse le tissu vers l'extérieur en grossissant, ce qui donne des marges lisses. La mastopathie fibrokystique crée une pseudomasse par fusion de kystes et fibrose, sans aucune invasion. Ces trois mécanismes se lisent directement sur les marges mammographiques : spiculées pour le cancer, lisses et lobulées pour le fibroadénome, mal définies pour la mastopathie fibrokystique."
@@ -451,6 +472,7 @@ let banque = [
     "answer_audio": "3A.mp3",
     "answer_fr": "Les calcifications à la mammographie correspondent le plus souvent au CCIS, au cancer, à la mastopathie fibrokystique, au fibroadénome ou à des calcifications vasculaires.",
     "answer_user": "DCIS cancer fibrocystic fibroadenoma vascular",
+    "answer_user_fr": "CCIS cancer fibrokystique fibroadénome vasculaire",
     "comment_mp3": "Calcification morphology is a direct radiological window into the underlying pathological process. Linear branching calcifications in high-grade DCIS are casts of necrotic ductal contents calcifying within the lumen — the mammographic image literally traces the duct system. Coarse popcorn calcifications in fibroadenoma reflect dystrophic calcification of hyalinized stroma. Vascular calcifications produce the tram-track sign of medial arterial wall calcification. The BIRADS morphology classification maps each pattern probabilistically to these histological correlates.",
     "comment_audio": "3C.mp3",
     "comment_fr": "La morphologie des calcifications donne une image directe du processus pathologique sous-jacent. Dans le CCIS de haut grade, les calcifications linéaires ramifiées sont des moulages du contenu nécrotique des canaux — l'image mammographique trace littéralement le système canalaire. Dans le fibroadénome, les calcifications grossières en pop-corn traduisent une calcification dystrophique du stroma hyalinisé. Les calcifications vasculaires, elles, produisent le signe du tramway le long de la paroi artérielle. La classification BIRADS relie chaque motif à ces corrélats histologiques, de façon probabiliste."
@@ -886,16 +908,30 @@ let recogActive = false;
 let finalTx = '';
 let lastFullTx = '';
 
+let modeReponse = 'en'; // 'en' | 'fr' — langue de la réponse en cours d'écoute/correction
+
 function basculerMicro() {
   if (questionRepondue) return;
   if (enEcoute) {
     arreterMicro();
   } else {
-    demarrerMicro();
+    modeReponse = 'en';
+    demarrerMicro('en-US');
   }
 }
 
-async function demarrerMicro() {
+function basculerMicroFr() {
+  if (questionRepondue) return;
+  if (phaseActuelle !== 'question') return;
+  if (enEcoute) {
+    arreterMicro();
+  } else {
+    modeReponse = 'fr';
+    demarrerMicro('fr-FR');
+  }
+}
+
+async function demarrerMicro(langEcoute) {
   if (questionRepondue) return;
   transcriptsAccumules = [];
   finalTx = '';
@@ -909,7 +945,7 @@ async function demarrerMicro() {
 
     function makeRecog() {
       const r = new SRBrowser();
-      r.lang = 'en-US';
+      r.lang = langEcoute;
       r.continuous = true;
       r.interimResults = true;
       r.maxAlternatives = 1;
@@ -922,7 +958,7 @@ async function demarrerMicro() {
         }
         const candidat = (finalTx + interim).trim();
         if (candidat.length >= lastFullTx.length) lastFullTx = candidat;
-        document.getElementById('fond-droite').textContent = lastFullTx || '…';
+        document.getElementById(modeReponse === 'fr' ? 'fond-gauche' : 'fond-droite').textContent = lastFullTx || '…';
       };
 
       r.onerror = (e) => {
@@ -968,9 +1004,17 @@ async function demarrerMicro() {
       recognition.start();
       enEcoute = true;
       phaseActuelle = 'question';
-      mettreAJourZones('ecoute');
-      afficherStatut('Écoute… (appuie à nouveau pour valider)', true);
-      document.getElementById('fond-droite').textContent = '…';
+      if (modeReponse === 'fr') {
+        document.getElementById('label-mic-fr').textContent = 'Valider';
+        document.getElementById('icone-mic-fr').textContent = '⏹️';
+        document.querySelector('.zone-gauche-bas').classList.add('actif');
+        afficherStatut('Écoute FR… (appuie à nouveau pour valider)', true);
+        document.getElementById('fond-gauche').textContent = '…';
+      } else {
+        mettreAJourZones('ecoute');
+        afficherStatut('Écoute… (appuie à nouveau pour valider)', true);
+        document.getElementById('fond-droite').textContent = '…';
+      }
     } catch (e) {
       recogActive = false;
       mettreAJourZones('question');
@@ -1053,10 +1097,18 @@ function arreterMicro() {
 
   const texteFinal = (finalTx.trim() || derniereTranscriptionNative.trim() || '').toLowerCase().trim();
 
+  document.getElementById('label-mic-fr').textContent = 'Répondre FR';
+  document.getElementById('icone-mic-fr').textContent = '🎙️';
+  document.querySelector('.zone-gauche-bas').classList.remove('actif');
+
   if (questionRepondue) return;
 
   if (texteFinal) {
-    traiterReponse([texteFinal]);
+    if (modeReponse === 'fr') {
+      traiterReponseFr([texteFinal]);
+    } else {
+      traiterReponse([texteFinal]);
+    }
   } else {
     mettreAJourZones('question');
     afficherStatut('Aucune réponse détectée — réessaie');
@@ -1159,28 +1211,13 @@ async function jugerReponseGemini(alternatives, answerUser, questionTexte) {
 // ============================================
 // TRAITER RÉPONSE
 // ============================================
-async function traiterReponse(alternatives) {
-  questionRepondue = true;
-  const q = banque[indexActuel];
-
-  mettreAJourZones('attente');
-  afficherStatut('Correction en cours…', true);
-
-  let resultat;
-  try {
-    resultat = await jugerReponseGemini(alternatives, q.answer_user, q.question_mp3);
-  } catch (e) {
-    // Filet de sécurité : ne jamais rester bloqué sur "Correction en cours"
-    console.error('Erreur inattendue pendant la correction :', e);
-    resultat = { statut: classifierScore(scoreLocal(alternatives, q.answer_user)), source: 'local-erreur' };
-  }
-  const statut = resultat.statut;
-
+async function apresJugement(statut, source, motsCleArray, langMots) {
   const libellesSource = {
     gemini: '✓ Corrigé par Gemini',
     local: '⚠ Correction locale (pas de clé API)',
     'local-fallback': '⚠ Correction locale (Gemini indisponible)',
-    'local-erreur': '⚠ Correction locale (erreur imprévue)'
+    'local-erreur': '⚠ Correction locale (erreur imprévue)',
+    'local-fr': '⚠ Correction locale (FR)'
   };
 
   let messageVocalFr = '';
@@ -1201,33 +1238,65 @@ async function traiterReponse(alternatives) {
   // Passe en phase "réponse" : zone droite → 💬 Commentaire, texte de fond = réponse
   phaseActuelle = 'reponse';
   mettreAJourZones('reponse');
-  afficherStatut(libellesSource[resultat.source] || '');
+  afficherStatut(libellesSource[source] || '');
 
   // Joue la réponse (MP3 anglais) automatiquement
   await lireReponse();
 
-  // Pause avant l'énoncé des mots-clés (amélioration 1)
+  // Pause avant l'énoncé des mots-clés
   await new Promise(r => setTimeout(r, 400));
 
-  const motsCles = q.answer_user.split(/\s+/).filter(Boolean);
   const fondDroite = document.getElementById('fond-droite');
 
   await jouerAudio('key.mp3');
-  if (motsCles.length >= 2 && motsCles.length <= 6) {
-    await jouerAudio(motsCles.length + '.mp3');
+  if (motsCleArray.length >= 2 && motsCleArray.length <= 6) {
+    await jouerAudio(motsCleArray.length + '.mp3');
   }
 
-  // Énonce et surligne chaque mot-clé, un par un (amélioration 2)
-  for (let i = 0; i < motsCles.length; i++) {
-    const avant = motsCles.slice(0, i).join(', ');
-    const apres = motsCles.slice(i + 1).join(', ');
+  // Énonce et surligne chaque mot-clé, un par un
+  for (let i = 0; i < motsCleArray.length; i++) {
+    const avant = motsCleArray.slice(0, i).join(', ');
+    const apres = motsCleArray.slice(i + 1).join(', ');
     fondDroite.innerHTML = (avant ? avant + ', ' : '') +
-      '<strong style="color:var(--accent)">' + motsCles[i] + '</strong>' +
+      '<strong style="color:var(--accent)">' + motsCleArray[i] + '</strong>' +
       (apres ? ', ' + apres : '');
     await new Promise(resolve =>
-      jouerLecteurDepuis(creerLecteur(motsCles[i]), 'en-US', 0.95, resolve)
+      jouerLecteurDepuis(creerLecteur(motsCleArray[i]), langMots, 0.95, resolve)
     );
   }
+}
+
+async function traiterReponse(alternatives) {
+  questionRepondue = true;
+  const q = banque[indexActuel];
+
+  mettreAJourZones('attente');
+  afficherStatut('Correction en cours…', true);
+
+  let resultat;
+  try {
+    resultat = await jugerReponseGemini(alternatives, q.answer_user, q.question_mp3);
+  } catch (e) {
+    // Filet de sécurité : ne jamais rester bloqué sur "Correction en cours"
+    console.error('Erreur inattendue pendant la correction :', e);
+    resultat = { statut: classifierScore(scoreLocal(alternatives, q.answer_user)), source: 'local-erreur' };
+  }
+
+  const motsCles = q.answer_user.split(/\s+/).filter(Boolean);
+  await apresJugement(resultat.statut, resultat.source, motsCles, 'en-US');
+}
+
+async function traiterReponseFr(alternatives) {
+  questionRepondue = true;
+  const q = banque[indexActuel];
+
+  mettreAJourZones('attente');
+  afficherStatut('Correction en cours…', true);
+
+  const cible = q.answer_user_fr || '';
+  const statut = classifierScore(scoreLocal(alternatives, cible));
+  const motsClesFr = cible.split(/\s+/).filter(Boolean);
+  await apresJugement(statut, 'local-fr', motsClesFr, 'fr-FR');
 }
 // ============================================
 // FEEDBACK VISUEL TEMPORAIRE
