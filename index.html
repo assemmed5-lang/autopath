@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -209,6 +210,10 @@
     background: rgba(239,68,68,0.15);
     animation: pulseZone 1s infinite;
   }
+  #zone-droite.pret-repeter {
+    border-color: var(--yellow);
+    background: rgba(251,191,36,0.15);
+  }
 
   /* Zone droite — la couleur change selon la phase (code additionnel à la position) */
   #zone-droite.c-bleu   { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.09); }
@@ -388,8 +393,12 @@
         </div>
       </button>
 
-      <button id="zone-droite" class="zone-btn c-bleu" onclick="clicZoneDroite()">
-        <div class="zone-etendre" onclick="event.stopPropagation(); toggleExpansion('droite')" id="etendre-droite" role="button" tabindex="0" title="Agrandir">⤢</div>
+      <button id="zone-droite" class="zone-btn c-bleu"
+        onpointerdown="droiteAppuiDebut(event)"
+        onpointerup="droiteAppuiFin(event)"
+        onpointerleave="droiteAppuiAnnule()"
+        onpointercancel="droiteAppuiAnnule()">
+        <div class="zone-etendre" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation(); toggleExpansion('droite')" id="etendre-droite" role="button" tabindex="0" title="Agrandir">⤢</div>
         <div class="zone-fond" id="fond-droite">—</div>
         <div class="zone-pied">
           <span class="zone-icone" id="icone-droite">🎙️</span>
@@ -797,7 +806,7 @@ function mettreAJourZones(phase) {
     fondGauche.textContent = q.comment_fr || '—';
     fondDroite.textContent = q.comment_mp3;
     iconeDroite.textContent = '➡️';
-    labelDroite.textContent = 'Suivant';
+    labelDroite.textContent = 'Suivant (maintenir = répéter)';
     zoneDroite.classList.add('c-violet');
     zoneDroite.disabled = false;
   }
@@ -817,6 +826,49 @@ function clicZoneDroite() {
   } else if (phaseActuelle === 'commentaire') {
     questionSuivante();
   }
+}
+
+// ============================================
+// ZONE DROITE — appui long en phase "commentaire" = répéter la question
+// (pour ne pas enchaîner les échecs et décourager l'utilisateur)
+// ============================================
+let minuteurAppuiDroite = null;
+let appuiLongDroiteDeclenche = false;
+
+function droiteAppuiDebut(e) {
+  appuiLongDroiteDeclenche = false;
+  clearTimeout(minuteurAppuiDroite);
+
+  if (phaseActuelle !== 'commentaire') return; // appui long réservé à la phase commentaire
+
+  document.getElementById('zone-droite').classList.add('pret-repeter');
+  minuteurAppuiDroite = setTimeout(() => {
+    appuiLongDroiteDeclenche = true;
+    document.getElementById('zone-droite').classList.remove('pret-repeter');
+    if (navigator.vibrate) navigator.vibrate(40);
+    rejouerQuestionActuelle();
+  }, SEUIL_APPUI_LONG_MS);
+}
+
+function droiteAppuiFin(e) {
+  clearTimeout(minuteurAppuiDroite);
+  document.getElementById('zone-droite').classList.remove('pret-repeter');
+  if (!appuiLongDroiteDeclenche) {
+    clicZoneDroite();
+  }
+}
+
+function droiteAppuiAnnule() {
+  clearTimeout(minuteurAppuiDroite);
+  document.getElementById('zone-droite').classList.remove('pret-repeter');
+}
+
+// Rejoue la question actuelle depuis le début, sans avancer dans la banque
+function rejouerQuestionActuelle() {
+  annulerParole();
+  if (audioActuel) { try { audioActuel.pause(); } catch(e){} }
+  if (recognition) { try { recognition.stop(); } catch(e){} }
+  chargerQuestion(indexActuel);
 }
 
 // ============================================
