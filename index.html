@@ -197,31 +197,17 @@
   #zone-gauche {
     border-color: rgba(56,189,248,0.35);
     background: rgba(56,189,248,0.07);
+    touch-action: none; /* évite le scroll/zoom pendant l'appui long */
   }
-  /* Le label "Traduire" passe en haut à gauche pour la zone gauche,
-     car le bas est occupé par le bouton "Répondre FR" */
-  #zone-gauche .zone-pied {
-    top: 8px; bottom: auto; left: 10px;
+  /* État pendant l'appui long : le mode "réponse FR" va s'activer/est actif */
+  #zone-gauche.pret-fr {
+    border-color: var(--yellow);
+    background: rgba(251,191,36,0.10);
   }
-  .zone-gauche-haut {
-    position: absolute; top: 0; left: 0; right: 0; height: 55%;
-    z-index: 2; cursor: pointer;
-  }
-  .zone-gauche-haut.pleine {
-    height: 100%;
-  }
-  .zone-gauche-bas {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 45%;
-    z-index: 2; cursor: pointer;
-    display: flex; align-items: flex-end; justify-content: center; gap: 6px;
-    padding-bottom: 34px;
-    background: linear-gradient(to top, rgba(56,189,248,0.12), transparent);
-  }
-  .zone-gauche-bas.actif {
-    background: linear-gradient(to top, rgba(239,68,68,0.2), transparent);
-  }
-  .zone-gauche-bas.masquee {
-    display: none;
+  #zone-gauche.ecoute-fr {
+    border-color: var(--red);
+    background: rgba(239,68,68,0.15);
+    animation: pulseZone 1s infinite;
   }
 
   /* Zone droite — la couleur change selon la phase (code additionnel à la position) */
@@ -389,17 +375,16 @@
     <div id="statut-ligne">Appuie pour répondre</div>
 
     <div id="zone-boutons">
-      <button id="zone-gauche" class="zone-btn">
-        <div class="zone-etendre" onclick="event.stopPropagation(); toggleExpansion('gauche')" id="etendre-gauche" role="button" tabindex="0" title="Agrandir">⤢</div>
+      <button id="zone-gauche" class="zone-btn"
+        onpointerdown="gaucheAppuiDebut(event)"
+        onpointerup="gaucheAppuiFin(event)"
+        onpointerleave="gaucheAppuiAnnule()"
+        onpointercancel="gaucheAppuiAnnule()">
+        <div class="zone-etendre" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation(); toggleExpansion('gauche')" id="etendre-gauche" role="button" tabindex="0" title="Agrandir">⤢</div>
         <div class="zone-fond" id="fond-gauche">—</div>
-        <div class="zone-gauche-haut" onclick="event.stopPropagation(); basculerTraduction()" role="button" tabindex="0" title="Écouter la traduction FR"></div>
-        <div class="zone-gauche-bas" onclick="event.stopPropagation(); basculerMicroFr()" role="button" tabindex="0" title="Répondre en français">
-          <span class="zone-icone" id="icone-mic-fr">🎙️</span>
-          <span class="zone-label" id="label-mic-fr">Répondre FR</span>
-        </div>
         <div class="zone-pied">
           <span class="zone-icone">🌐</span>
-          <span class="zone-label" id="label-gauche">Traduire</span>
+          <span class="zone-label" id="label-gauche">Traduire (maintenir = répondre FR)</span>
         </div>
       </button>
 
@@ -412,6 +397,7 @@
         </div>
       </button>
     </div>
+
 
     <div id="debug-audio" style="font-size:10px; color:#fbbf24; text-align:center; word-break:break-all; max-width:100%; min-height:0;"></div>
   </div>
@@ -780,21 +766,8 @@ function mettreAJourZones(phase) {
   const fondDroite = document.getElementById('fond-droite');
   const iconeDroite = document.getElementById('icone-droite');
   const labelDroite = document.getElementById('label-droite');
-  const zoneGaucheHaut = document.querySelector('.zone-gauche-haut');
-  const zoneGaucheBas = document.querySelector('.zone-gauche-bas');
 
   zoneDroite.classList.remove('c-bleu', 'c-rouge', 'c-jaune', 'c-teal', 'c-violet');
-
-  // Le bouton "Répondre FR" n'a de sens qu'en phase "question" (avant d'avoir
-  // répondu) — on le masque ensuite pour laisser toute la zone à la traduction
-  // et éviter qu'il intercepte des clics destinés à la traduction.
-  if (phase === 'question') {
-    zoneGaucheBas.classList.remove('masquee');
-    zoneGaucheHaut.classList.remove('pleine');
-  } else {
-    zoneGaucheBas.classList.add('masquee');
-    zoneGaucheHaut.classList.add('pleine');
-  }
 
   if (phase === 'question') {
     fondGauche.textContent = q.question_fr || '—';
@@ -829,7 +802,8 @@ function mettreAJourZones(phase) {
     zoneDroite.disabled = false;
   }
 
-  document.getElementById('label-gauche').textContent = 'Traduire';
+  document.getElementById('label-gauche').textContent =
+    phase === 'question' ? 'Traduire (maintenir = répondre FR)' : 'Traduire';
 }
 
 // Gère le clic sur la zone droite selon la phase en cours
@@ -883,14 +857,16 @@ function basculerTraduction() {
     document.getElementById('label-gauche').textContent = 'Pause FR';
     jouerLecteurDepuis(lecteurFrancais, 'fr-FR', 0.92, () => {
       traductionEnCours = false;
-      document.getElementById('label-gauche').textContent = 'Traduire';
+      document.getElementById('label-gauche').textContent =
+        phaseActuelle === 'question' ? 'Traduire (maintenir = répondre FR)' : 'Traduire';
     });
   } else {
     // Pause le français et reprend l'anglais là où il s'était arrêté
     annulerParole();
     traductionEnCours = false;
     langueActive = 'en';
-    document.getElementById('label-gauche').textContent = 'Traduire';
+    document.getElementById('label-gauche').textContent =
+      phaseActuelle === 'question' ? 'Traduire (maintenir = répondre FR)' : 'Traduire';
     if (audioActuel && audioActuel.paused && !audioActuel.ended) {
       audioActuel.play().catch(() => {});
     } else if (lecteurAnglaisTTS) {
@@ -953,6 +929,47 @@ function basculerMicroFr() {
     modeReponse = 'fr';
     demarrerMicro('fr-FR');
   }
+}
+
+// ============================================
+// ZONE GAUCHE — geste d'appui (adapté conduite : pas de petit bouton à viser)
+// Appui court (relâché avant le seuil) → traduction FR
+// Appui maintenu (au-delà du seuil)    → active/désactive le micro FR
+// ============================================
+const SEUIL_APPUI_LONG_MS = 550;
+let minuteurAppuiGauche = null;
+let appuiLongDeclenche = false;
+
+function gaucheAppuiDebut(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  appuiLongDeclenche = false;
+  clearTimeout(minuteurAppuiGauche);
+
+  // Le micro FR ne peut se déclencher qu'en phase "question" et si on n'écoute
+  // pas déjà l'anglais — sinon seule la traduction (appui court) reste active.
+  const microFrPossible = phaseActuelle === 'question' && !questionRepondue && !(enEcoute && modeReponse === 'en');
+  if (!microFrPossible) return;
+
+  document.getElementById('zone-gauche').classList.add('pret-fr');
+  minuteurAppuiGauche = setTimeout(() => {
+    appuiLongDeclenche = true;
+    document.getElementById('zone-gauche').classList.remove('pret-fr');
+    if (navigator.vibrate) navigator.vibrate(40);
+    basculerMicroFr();
+  }, SEUIL_APPUI_LONG_MS);
+}
+
+function gaucheAppuiFin(e) {
+  clearTimeout(minuteurAppuiGauche);
+  document.getElementById('zone-gauche').classList.remove('pret-fr');
+  if (!appuiLongDeclenche) {
+    basculerTraduction();
+  }
+}
+
+function gaucheAppuiAnnule() {
+  clearTimeout(minuteurAppuiGauche);
+  document.getElementById('zone-gauche').classList.remove('pret-fr');
 }
 
 async function demarrerMicro(langEcoute) {
@@ -1029,10 +1046,9 @@ async function demarrerMicro(langEcoute) {
       enEcoute = true;
       phaseActuelle = 'question';
       if (modeReponse === 'fr') {
-        document.getElementById('label-mic-fr').textContent = 'Valider';
-        document.getElementById('icone-mic-fr').textContent = '⏹️';
-        document.querySelector('.zone-gauche-bas').classList.add('actif');
-        afficherStatut('Écoute FR… (appuie à nouveau pour valider)', true);
+        document.getElementById('zone-gauche').classList.add('ecoute-fr');
+        document.getElementById('label-gauche').textContent = 'Maintenir = valider';
+        afficherStatut('Écoute FR… (maintiens l\'appui pour valider)', true);
         document.getElementById('fond-gauche').textContent = '…';
       } else {
         mettreAJourZones('ecoute');
@@ -1121,9 +1137,8 @@ function arreterMicro() {
 
   const texteFinal = (finalTx.trim() || derniereTranscriptionNative.trim() || '').toLowerCase().trim();
 
-  document.getElementById('label-mic-fr').textContent = 'Répondre FR';
-  document.getElementById('icone-mic-fr').textContent = '🎙️';
-  document.querySelector('.zone-gauche-bas').classList.remove('actif');
+  document.getElementById('zone-gauche').classList.remove('ecoute-fr');
+  document.getElementById('label-gauche').textContent = 'Traduire (maintenir = répondre FR)';
 
   if (questionRepondue) return;
 
