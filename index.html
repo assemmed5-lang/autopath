@@ -1212,9 +1212,10 @@ async function traiterReponse(alternatives) {
   const motsCles = q.answer_user.split(/\s+/).filter(Boolean);
   const fondDroite = document.getElementById('fond-droite');
 
-  await new Promise(resolve =>
-    jouerLecteurDepuis(creerLecteur('The key words for this answer are ' + motsCles.length + ':'), 'en-US', 0.95, resolve)
-  );
+  await jouerAudio('key.mp3');
+  if (motsCles.length >= 2 && motsCles.length <= 6) {
+    await jouerAudio(motsCles.length + '.mp3');
+  }
 
   // Énonce et surligne chaque mot-clé, un par un (amélioration 2)
   for (let i = 0; i < motsCles.length; i++) {
