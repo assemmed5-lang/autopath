@@ -1247,7 +1247,7 @@ function scoreLocal(alternatives, answerUser) {
 // Classe un score 0..1 en 'correct' / 'partiel' / 'incorrect'
 function classifierScore(fraction) {
   if (fraction >= 0.70) return 'correct';
-  if (fraction >= 0.30) return 'partiel';
+  if (fraction >= 0.10) return 'partiel';
   return 'incorrect';
 }
 
@@ -1317,10 +1317,10 @@ async function apresJugement(statut, source, motsCleArray, langMots) {
     ficherFeedback = 'good.mp3';
   } else if (statut === 'partiel') {
     afficherFeedback('🟡');
-    ficherFeedback = 'youcan.mp3';
+    ficherFeedback = 'again.mp3';
   } else {
     afficherFeedback('❌');
-    ficherFeedback = 'again.mp3';
+    ficherFeedback = 'youcan.mp3';
   }
 
   await jouerAudio(ficherFeedback);
